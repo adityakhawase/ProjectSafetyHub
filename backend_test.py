@@ -7,7 +7,7 @@ import os
 from typing import Dict, Any
 
 # Test configuration
-BASE_URL = "https://student-safety-hub-1.preview.emergentagent.com"
+BASE_URL = "http://localhost:3000"
 API_BASE = f"{BASE_URL}/api"
 
 def make_request(method: str, endpoint: str, data: Dict[Any, Any] = None, headers: Dict[str, str] = None) -> Dict[Any, Any]:

@@ -15,6 +15,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
+import { BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, AreaChart, Area } from 'recharts';
 
 export default function App() {
   const [currentView, setCurrentView] = useState('home');
@@ -32,6 +33,8 @@ export default function App() {
   const [selectedComplaint, setSelectedComplaint] = useState(null);
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterCategory, setFilterCategory] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
 
   // Form states
   const [loginForm, setLoginForm] = useState({ email: '', password: '', role: '' });
@@ -473,6 +476,7 @@ export default function App() {
   };
 
   const filteredComplaints = complaints.filter(complaint => {
+    if (searchQuery && !complaint.title?.toLowerCase().includes(searchQuery.toLowerCase()) && !complaint.description?.toLowerCase().includes(searchQuery.toLowerCase()) && !complaint.category?.toLowerCase().includes(searchQuery.toLowerCase()) && !complaint.branch?.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     if (filterStatus !== 'all' && complaint.status !== filterStatus) return false;
     if (filterCategory !== 'all' && complaint.category !== filterCategory) return false;
     return true;
@@ -666,6 +670,16 @@ export default function App() {
           >
             <UserCheck className="h-7 w-7 text-gray-600" />
             <span className="text-base font-medium text-gray-700 group-hover:text-gray-900">Settings</span>
+          </button>
+
+          {/* Admin & Principal Login - Contact Admin for Access */}
+          <button
+            onClick={() => { setError('Admin/Principal accounts are created by existing administrators only. Contact your institution admin for access.'); setTimeout(() => setError(''), 5000); }}
+            className="flex items-center gap-3 w-full px-3 py-3 rounded-xl hover:bg-gray-100 transition-all hover:scale-105 group cursor-not-allowed opacity-60"
+            disabled
+          >
+            <Shield className="h-7 w-7 text-gray-400" />
+            <span className="text-base font-medium text-gray-500 group-hover:text-gray-400">Admin / Principal (Admin Only)</span>
           </button>
 
           {/* Analytics Button */}
@@ -1676,13 +1690,71 @@ export default function App() {
   }
 
   // Admin & Principal Auth Page (Sign In + Sign Up)
+  const [adminSecret, setAdminSecret] = useState('');
+  const [showAdminSecret, setShowAdminSecret] = useState(false);
   if (currentView === 'admin-login') {
+    // Admin/Principal access requires secret code
+    const [adminSecret, setAdminSecret] = useState('');
+    const [verifiedAdmin, setVerifiedAdmin] = useState(false);
+    const ADMIN_SECRET = process.env.ADMIN_SECRET || 'CHANGE_ME';
+    
+    const handleAdminSecretSubmit = () => {
+      if (adminSecret === ADMIN_SECRET) {
+        setVerifiedAdmin(true);
+        setError('');
+      } else {
+        setError('Invalid access code. Contact an administrator.');
+        setTimeout(() => setError(''), 3000);
+      }
+    };
+    
     const adminRoles = [
       { id: 'admin', label: 'Admin', icon: Shield, gradient: 'from-purple-600 to-purple-700', iconColor: 'text-purple-600', btn: 'bg-purple-600 hover:bg-purple-700', tab: 'border-purple-600 text-purple-600' },
       { id: 'principal', label: 'Principal', icon: Crown, gradient: 'from-amber-500 to-orange-600', iconColor: 'text-amber-600', btn: 'bg-amber-600 hover:bg-amber-700', tab: 'border-amber-600 text-amber-600' }
     ];
     const currentAdminRole = adminRoles.find(r => r.id === selectedRole) || adminRoles[0];
     const isAdminLogin = authTab === 'login';
+
+    if (!verifiedAdmin) {
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-purple-50 via-indigo-50 to-amber-50 flex items-center justify-center p-4 relative overflow-hidden">
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-pulse" />
+            <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-amber-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-pulse" style={{ animationDelay: '2s' }} />
+          </div>
+          <div className="w-full max-w-sm relative animate-in slide-in-from-bottom-4 duration-500">
+            <div className="text-center mb-6">
+              <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-600 to-amber-600 shadow-lg shadow-purple-200/50 mb-3">
+                <Shield className="h-7 w-7 text-white" />
+              </div>
+              <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Admin Portal</h1>
+              <p className="text-sm text-gray-500 mt-0.5">Authorized personnel only</p>
+            </div>
+            <Card className="border-0 shadow-2xl bg-white/95 backdrop-blur-sm ring-1 ring-gray-200 overflow-hidden">
+              <CardContent className="p-5">
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="admin-secret" className="text-sm font-medium text-gray-700">Admin Access Code</Label>
+                    <Input id="admin-secret" type="password" placeholder="Enter admin access code" value={adminSecret} onChange={(e) => setAdminSecret(e.target.value)} className="border-purple-300 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20" required />
+                  </div>
+                  <Button onClick={handleAdminSecretSubmit} className="w-full bg-purple-600 hover:bg-purple-700 text-white shadow-lg">Verify Access</Button>
+                  {error && (
+                    <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200">
+                      <p className="text-sm text-red-700 font-medium">{error}</p>
+                    </div>
+                  )}
+                  <p className="text-xs text-gray-400 text-center">Contact your institution administrator for the access code.</p>
+                </div>
+              </CardContent>
+            </Card>
+            <button onClick={() => { setCurrentView('home'); setError(''); }} className="text-sm text-gray-400 hover:text-gray-600 transition-colors flex items-center justify-center gap-1.5 w-full py-1 group mt-2">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="group-hover:-translate-x-0.5 transition-transform"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+              Back to Home
+            </button>
+          </div>
+        </div>
+      );
+    }
 
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 via-indigo-50 to-amber-50 flex items-center justify-center p-4 relative overflow-hidden">
@@ -2087,6 +2159,71 @@ export default function App() {
               </div>
             </div>
           </div>
+
+          {/* Charts Section */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+              <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <BarChart3 className="h-5 w-5 text-blue-600" />
+                Complaints by Status
+              </h3>
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={[{ status: 'Pending', count: analytics.overview.pending }, { status: 'In Progress', count: analytics.overview.inProgress }, { status: 'Resolved', count: analytics.overview.resolved }]}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="status" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="count" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+              <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <PieChart className="h-5 w-5 text-purple-600" />
+                Complaints by Category
+              </h3>
+              <ResponsiveContainer width="100%" height={250}>
+                <PieChart>
+                  <Pie data={analytics.byCategory.map(c => ({ name: c.category, value: c.submitted }))} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                    {analytics.byCategory.map((entry, index) => (<Cell key={`cell-${index}`} fill={['#3B82F6','#10B981','#F59E0B','#EF4444','#8B5CF6','#EC4899','#06B6D4','#84CC16'][index % 8]} />))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+              <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-green-600" />
+                Resolution Trend
+              </h3>
+              <ResponsiveContainer width="100%" height={250}>
+                <AreaChart data={[{ name: 'Pending', value: analytics.overview.pending }, { name: 'In Progress', value: analytics.overview.inProgress }, { name: 'Resolved', value: analytics.overview.resolved }]}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Area type="monotone" dataKey="value" stroke="#10B981" fill="#10B981" fillOpacity={0.3} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+              <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <BarChart3 className="h-5 w-5 text-amber-600" />
+                Branch Submission vs Resolution
+              </h3>
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={analytics.byBranch}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="branch" tick={{ fontSize: 10 }} />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="submitted" fill="#3B82F6" name="Submitted" radius={[2, 2, 0, 0]} />
+                  <Bar dataKey="resolved" fill="#10B981" name="Resolved" radius={[2, 2, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -2325,10 +2462,29 @@ export default function App() {
             {/* Complaints List */}
             <div className="lg:col-span-2">
               <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-                <div className="px-6 py-5 border-b border-gray-100">
-                  <h3 className="text-lg font-bold text-gray-900">My Complaints</h3>
-                  <p className="text-sm text-gray-500 mt-0.5">Track the status of your submitted complaints</p>
+                <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between flex-wrap gap-3">
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900">My Complaints</h3>
+                    <p className="text-sm text-gray-500 mt-0.5">Track the status of your submitted complaints</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => setShowSearch(!showSearch)} className="p-2 rounded-lg hover:bg-gray-100 transition-colors" title="Search">
+                      <Search className={`h-4 w-4 ${showSearch ? 'text-blue-600' : 'text-gray-500'}`} />
+                    </button>
+                    <Button variant="outline" size="sm" onClick={() => { const csv = filteredComplaints.map(c => `"${c.title}","${c.category}","${c.status}","${c.branch}","${c.createdAt}"`).join('\n'); const blob = new Blob([['Title,Category,Status,Branch,Created At'].join(',') + '\n' + csv], { type: 'text/csv' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'my_complaints.csv'; a.click(); URL.revokeObjectURL(url); }} className="flex items-center gap-1.5 text-xs">
+                      <Download className="h-3 w-3" /> Export
+                    </Button>
+                  </div>
                 </div>
+                {showSearch && (
+                  <div className="px-6 py-3 bg-gray-50 border-b border-gray-100">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Input placeholder="Search..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
+                      {searchQuery && <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">✕</button>}
+                    </div>
+                  </div>
+                )}
                 <div className="p-5">
                   {complaints.length === 0 ? (
                     <div className="text-center py-16 text-gray-400">
@@ -3217,10 +3373,29 @@ export default function App() {
             {/* Complaints List */}
             <div className="lg:col-span-2">
               <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-                <div className="px-6 py-5 border-b border-gray-100">
-                  <h3 className="text-lg font-bold text-gray-900">My Complaints</h3>
-                  <p className="text-sm text-gray-500 mt-0.5">Track the status of your submitted complaints</p>
+                <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between flex-wrap gap-3">
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900">My Complaints</h3>
+                    <p className="text-sm text-gray-500 mt-0.5">Track the status of your submitted complaints</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => setShowSearch(!showSearch)} className="p-2 rounded-lg hover:bg-gray-100 transition-colors" title="Search">
+                      <Search className={`h-4 w-4 ${showSearch ? 'text-blue-600' : 'text-gray-500'}`} />
+                    </button>
+                    <Button variant="outline" size="sm" onClick={() => { const csv = filteredComplaints.map(c => `"${c.title}","${c.category}","${c.status}","${c.branch}","${c.createdAt}"`).join('\n'); const blob = new Blob([['Title,Category,Status,Branch,Created At'].join(',') + '\n' + csv], { type: 'text/csv' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'my_complaints.csv'; a.click(); URL.revokeObjectURL(url); }} className="flex items-center gap-1.5 text-xs">
+                      <Download className="h-3 w-3" /> Export
+                    </Button>
+                  </div>
                 </div>
+                {showSearch && (
+                  <div className="px-6 py-3 bg-gray-50 border-b border-gray-100">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Input placeholder="Search..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
+                      {searchQuery && <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">✕</button>}
+                    </div>
+                  </div>
+                )}
                 <div className="p-5">
                   {complaints.length === 0 ? (
                     <div className="text-center py-16 text-gray-400">

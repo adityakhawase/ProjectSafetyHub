@@ -29,7 +29,7 @@ const COMPLAINT_CATEGORIES = [
 // Categories that require media (photo/video)
 const MEDIA_REQUIRED_CATEGORIES = ['Bullying', 'Ragging', 'Infrastructure Issue'];
 
-const AUTO_REPLY_MESSAGE = "Thank you for bringing this infrastructure issue to our attention. We understand the inconvenience it may have caused and sincerely apologize for the same. Our team has taken note of the concern and is currently reviewing the situation to identify the root cause. Necessary steps will be taken to resolve the issue at the earliest and ensure that such problems are minimized in the future. We appreciate your patience and cooperation while we work towards improving the infrastructure and maintaining a better experience for everyone. HAVE A GOOD DAY!";
+const AUTO_REPLY_MESSAGE = "Thank you for bringing this infrastructure issue to our attention. We understand the inconvenience it may have caused and sincerely apologize for the same. Our team has taken note of the concern and is currently reviewing the situation to identify the root cause. Necessary steps will be taken to resolve the issue at the earliest and ensure that such problems are minimized in the future. We appreciate your patience and cooperation while we work towards improving the infrastructure and maintaining a better experience for everyone. 👍 HAVE A GOOD DAY 😊";
 
 const MAX_ADMIN_ACCOUNTS = 16;
 const MAX_PRINCIPAL_ACCOUNTS = 3;
@@ -167,13 +167,25 @@ export async function GET(request, { params }) {
         branchStats.push({ branch, submitted, resolved });
       }
       
+      const users = database.collection('users');
+      const totalUsers = await users.countDocuments({});
+      const totalStudents = await users.countDocuments({ role: 'student' });
+      const totalTeachers = await users.countDocuments({ role: 'teacher' });
+      const totalAdmins = await users.countDocuments({ role: 'admin' });
+      const totalPrincipals = await users.countDocuments({ role: 'principal' });
+      
       return Response.json({
         total: totalComplaints,
         resolved: resolvedComplaints,
         pending: pendingComplaints,
         inProgress: inProgressComplaints,
         lastComplaintAt: lastComplaint?.createdAt || null,
-        byBranch: branchStats
+        byBranch: branchStats,
+        totalUsers,
+        totalStudents,
+        totalTeachers,
+        totalAdmins,
+        totalPrincipals
       });
     }
     
@@ -355,6 +367,12 @@ export async function POST(request, { params }) {
     if (path === 'auth/register') {
       const { email, password, name, branch, role } = body;
       
+      // Block public admin/principal registration - requires admin secret
+      const userRole = role || 'student';
+      if (userRole === 'admin' || userRole === 'principal') {
+        return Response.json({ error: 'Admin/Principal accounts can only be created by existing administrators. Contact an admin to register.' }, { status: 403 });
+      }
+      
       if (!email || !password || !name) {
         return Response.json({ error: 'Email, password and name are required' }, { status: 400 });
       }
@@ -375,8 +393,6 @@ export async function POST(request, { params }) {
           error: 'Password is too weak. Use a mix of uppercase, lowercase, numbers, and special characters.'
         }, { status: 400 });
       }
-      
-      const userRole = role || 'student';
       
       // Branch is not required for principal and teacher
       if (userRole !== 'principal' && userRole !== 'teacher' && !branch) {
@@ -418,8 +434,10 @@ export async function POST(request, { params }) {
         email,
         password: hashedPassword,
         name,
-        branch: branch || 'ALL', // Principal and Teacher get 'ALL' as branch
+        branch: branch || 'ALL',
         role: userRole,
+        status: (userRole === 'admin' || userRole === 'principal') ? 'pending' : 'approved',
+        isVerified: userRole !== 'admin' && userRole !== 'principal',
         createdAt: new Date().toISOString()
       };
       
@@ -505,13 +523,6 @@ export async function POST(request, { params }) {
       
       if (!BRANCHES.includes(branch)) {
         return Response.json({ error: 'Invalid branch' }, { status: 400 });
-      }
-      
-      // Check if media is required for this category
-      if (MEDIA_REQUIRED_CATEGORIES.includes(category)) {
-        if (!mediaBase64 || !mediaType) {
-          return Response.json({ error: `Media (photo/video) is required for ${category} complaints` }, { status: 400 });
-        }
       }
       
       // Validate media if provided
